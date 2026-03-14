@@ -86,6 +86,7 @@ systemdesignlab/
 │       │   │   ├── level.yaml
 │       │   │   ├── context.md
 │       │   │   ├── symptoms.md
+│       │   │   ├── config.yaml          # Broken configuration
 │       │   │   ├── bugs/
 │       │   │   ├── health-checks/
 │       │   │   └── docker-compose.override.yml
@@ -93,8 +94,8 @@ systemdesignlab/
 │       │       ├── level.yaml
 │       │       ├── context.md
 │       │       ├── briefing.md
-│       │       ├── contracts/
-│       │       ├── stubs/
+│       │       ├── contracts/           # OpenAPI specs defining API surface
+│       │       ├── stubs/               # Bare service skeletons (main.go + interfaces)
 │       │       ├── tests/
 │       │       └── docker-compose.skeleton.yml
 │       ├── solutions/
@@ -186,6 +187,81 @@ When the user runs `make switch-cache memcached`, the CLI:
 1. Updates `config.yaml`
 2. Reassembles `docker-compose.yml` with `memcached.yml` instead of `redis.yml`
 3. Restarts containers
+
+### Configuration Resolution
+
+The root `config.yaml` defines default component selections. Each level also has a `config.yaml` that overrides specific values for that level's scenario:
+
+- **Root `config.yaml`:** Defaults (e.g., `cache.provider: redis`, `database.provider: postgres`).
+- **Level `config.yaml`:** Overrides merged on top of root. Level 1-3 may use defaults as-is. Level 4's config contains the intentional misconfigurations (e.g., `cache.config.eviction_policy: noeviction`, `cache.config.max_memory: 1mb`).
+- **User overrides:** When the user runs `make switch-cache memcached`, it modifies the workspace config only. The repo-level configs are never changed.
+
+Merge order: root defaults → level overrides → user overrides (in workspace).
+
+### YAML Schemas
+
+**`system.yaml`** — System metadata:
+
+```yaml
+name: url-shortener
+description: "URL shortening service with consistent hashing and caching"
+concepts:
+  - consistent-hashing
+  - caching
+  - read-heavy-optimization
+  - sharding
+  - cache-eviction
+services:
+  - api-gateway
+  - shortener
+  - redirector
+prerequisites:
+  - docker
+  - go-1.21
+pluggable:
+  cache: [redis, memcached]
+  database: [postgres]         # cassandra added in Phase 2
+```
+
+**`level.yaml`** — Level metadata:
+
+```yaml
+level: 3
+name: "Build the Missing Piece"
+description: "Implement the consistent hashing ring"
+estimated_time: "2-4 hours"
+prerequisites:
+  recommended: [1, 2]         # Levels recommended before this one
+  required: []                # No hard requirements
+stubs:
+  - source: stubs/hasher.go
+    target: services/shortener/hasher.go
+tests:
+  - tests/
+validation:
+  type: tiered               # tiered | health-check | guided
+  thresholds:
+    p99_latency_ms: 100
+    cache_hit_rate: 0.85
+    min_rps: 1000
+```
+
+### Level 5 Contracts
+
+The `contracts/` directory in Level 5 contains OpenAPI specifications that define the external API surface of each service. These are the only "requirements" the user gets — they define what endpoints exist, request/response schemas, and expected status codes. The user must implement services that satisfy these contracts. Integration tests validate against the contracts.
+
+### CLI Error Handling
+
+The CLI handles common failure modes:
+
+- **Workspace conflict:** If `workspace/` already contains work, the CLI prompts: "Workspace contains existing work for [system] Level [N]. Options: (1) Archive to workspace/archive/[timestamp]/, (2) Overwrite, (3) Cancel." Default is archive.
+- **Docker not running:** CLI checks for Docker daemon before scaffolding. Prints: "Docker is not running. Start Docker Desktop and try again."
+- **Missing compose fragment:** If `config.yaml` references a provider without a matching compose fragment (e.g., `cassandra` in Phase 1), CLI prints: "Provider 'cassandra' is not available yet. Available cache providers: redis, memcached."
+- **Validate without running system:** CLI checks for running containers. Prints: "No running system found. Run 'make start' first."
+
+### CLI Implementation
+
+The CLI is written in Go and distributed as a pre-built binary for Linux, macOS, and Windows. Users without Go can download the binary from GitHub releases. Users with Go can also build from source with `go build ./cli/...`. Make targets wrap the CLI binary — users interact with `make` commands, not the CLI directly.
 
 ### Infrastructure
 
@@ -334,14 +410,25 @@ Observability is a core learning objective, not just infrastructure. Each system
 
 Simple Make targets wrapping Docker commands. No external framework for Phase 1.
 
+### Phase 1 Chaos Commands
+
 ```bash
 make chaos-kill-cache         # docker stop <cache-container>
-make chaos-lag-network        # tc qdisc add netem delay 200ms on DB container
-make chaos-corrupt-shard      # Insert bad data into one shard
+make chaos-lag-network        # Add latency to DB container (see platform note)
 make chaos-overload           # Run load test at 10x normal rate
-make chaos-partition          # Network partition between services
 make chaos-restore            # Undo all chaos — restore healthy state
 ```
+
+### Phase 2+ Chaos Commands
+
+```bash
+make chaos-corrupt-shard      # Insert bad data into one shard (requires sharding)
+make chaos-partition          # Network partition between services
+```
+
+### Cross-Platform Note
+
+`chaos-lag-network` uses `tc qdisc add netem` which requires the Linux kernel `netem` module. On Docker Desktop for Windows/Mac, this may not work depending on networking mode. The implementation should detect the platform and either use `tc` (Linux), Toxiproxy sidecar (Windows/Mac fallback), or print a warning with manual instructions.
 
 Every chaos command includes an observation prompt: "Before running this, screenshot the Golden Signals dashboard. After, compare. Write in your decision journal: which signals moved, which didn't, and why."
 
@@ -406,11 +493,13 @@ Structured markdown template that forces deliberate thinking before, during, and
 
 | Level | What `make validate` does |
 |-------|--------------------------|
-| 1 | Checks user ran load tests (metrics exist in Prometheus). Prints reflection questions. Checks journal has observations. |
-| 2 | Checks config changes were made (config change log). Prints comparison prompts. Checks journal has trade-off analysis. |
-| 3 | Runs tiered tests (see below). Checks journal has component choices documented. |
-| 4 | Verifies Golden Signals returned to healthy baselines. Runs health checks. Checks journal documents diagnostic path. |
-| 5 | Full integration tests + load test thresholds + chaos survival. Checks journal has architecture decisions and SLO definitions. |
+| 1 | Checks user ran load tests (metrics exist in Prometheus). Prints reflection questions. Checks journal sections are non-empty (structural check, not semantic). |
+| 2 | Checks config changes were made (config change log). Prints comparison prompts. Checks journal sections are non-empty. |
+| 3 | Runs tiered tests (see below). Checks journal has non-empty component choices section. |
+| 4 | Verifies Golden Signals returned to healthy baselines. Runs health checks. Checks journal has non-empty diagnostic path section. |
+| 5 | Full integration tests + load test thresholds + chaos survival. Checks journal has non-empty architecture decisions and SLO sections. |
+
+**Note:** Journal validation is structural only — it checks that required sections contain text, not that the content is meaningful. Semantic quality assessment is deferred to Phase 2's AI integration.
 
 ### Test Tiers (Level 3 & 5)
 
@@ -458,10 +547,10 @@ make clean                             # Tear down containers, clean workspace
 
 10-15 multiple choice questions grouped by concept area:
 
-- **Fundamentals** — caching, load balancing, database basics (gates Level 1-2)
-- **Design trade-offs** — CAP theorem, consistency vs availability (gates Level 3)
-- **Debugging intuition** — "p99 latency spiked after deploying X, what do you check?" (gates Level 4)
-- **Architecture** — designing from requirements, capacity estimation (gates Level 5)
+- **Fundamentals** — caching, load balancing, database basics (recommends Level 1-2)
+- **Design trade-offs** — CAP theorem, consistency vs availability (recommends Level 3)
+- **Debugging intuition** — "p99 latency spiked after deploying X, what do you check?" (recommends Level 4)
+- **Architecture** — designing from requirements, capacity estimation (recommends Level 5)
 
 Output recommends a system + level. Biases toward starting at Level 1 even for experienced users, with a note that Level 1 takes ~15 minutes and provides the dashboard baseline needed for Level 4.
 
@@ -469,16 +558,29 @@ Questions and scoring live in `cli/diagnose/` as YAML. Deterministic scoring, no
 
 ## Scaffolding Flow
 
+`make start-challenge` and `make start` are separate operations:
+
+- **`make start-challenge url-shortener 3`** — scaffolds files into `workspace/`. Does NOT start containers.
+- **`make start`** — runs `docker compose up` from `workspace/`. Requires scaffolding to have been run first.
+
+This separation lets users inspect the scaffolded files, read the briefing, and fill in the "Before Building" journal section before spinning up infrastructure.
+
 When the user runs `make start-challenge url-shortener 3`:
 
-1. Read `systems/url-shortener/system.yaml` — validate system exists
-2. Read `systems/url-shortener/levels/level-3/level.yaml` — get level config
-3. Copy `services/` → `workspace/url-shortener/services/`
-4. Apply level overlay — replace `services/shortener/hasher.go` with `levels/level-3/stubs/hasher.go`
-5. Copy tests into workspace
-6. Assemble `docker-compose.yml` from fragments + config.yaml + level override
-7. Copy journal template → `workspace/journal.md`
-8. Print `context.md` then `briefing.md` to terminal
+1. Check for existing workspace (see CLI Error Handling for conflict resolution)
+2. Read `systems/url-shortener/system.yaml` — validate system exists
+3. Read `systems/url-shortener/levels/level-3/level.yaml` — get level config
+4. Copy `services/` → `workspace/url-shortener/services/`
+5. Apply level overlay — replace `services/shortener/hasher.go` with `levels/level-3/stubs/hasher.go`
+6. Copy tests into workspace
+7. Assemble `docker-compose.yml` from fragments + config resolution (root defaults → level overrides)
+8. Copy journal template → `workspace/journal.md`
+9. Print `context.md` then `briefing.md` to terminal
+10. Print: "Ready. Fill in the 'Before Building' section of your journal, then run 'make start'."
+
+### Workspace Versioning
+
+The workspace is ephemeral. When the repo is updated (new levels, infra changes), users re-scaffold to pick up changes. Prior workspace work can be archived via the workspace conflict prompt or manually backed up. The workspace is gitignored and is not intended to be preserved across repo updates.
 
 ## Phasing Strategy
 
