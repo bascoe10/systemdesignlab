@@ -10,11 +10,98 @@ SystemDesignLab is an open-source monorepo for hands-on system design learning. 
 
 **Target users:** All experience levels. The 5-level progression accommodates juniors (Levels 1-2), mid-level engineers (Levels 3-4), and seniors (Level 5). A diagnostic quiz objectively assesses knowledge and recommends an entry point.
 
-## Architecture: Git Branch-Based Learning
+## Architecture: Generated Branches + Focused System Directory
 
-### Branch Structure
+### Design Principles
 
-Each system has one git branch per level. This is the core navigation mechanism — users move between levels using standard git commands, which is native to how engineers already work.
+The architecture solves five requirements simultaneously:
+
+1. **Git-native workflow** — users navigate via `git checkout`, `git branch`, `git stash`
+2. **Localized switching** — changing levels only swaps the `system/` directory, not infrastructure
+3. **Shared infrastructure** — Grafana dashboards, Prometheus, chaos toolkit are identical everywhere
+4. **Simple UX** — no submodules, no worktree knowledge required for the default case
+5. **Maintainable** — infrastructure changes propagate automatically, not manually to N x 5 branches
+
+### Source of Truth: `main` Branch
+
+The `main` branch is the single source of truth. Contributors work here. It contains ALL systems and ALL levels organized as directories:
+
+```
+main branch (source of truth):
+├── infrastructure/              # Shared across all systems and levels
+│   ├── docker/
+│   │   ├── base/                # Base Dockerfiles (Go service)
+│   │   └── compose-fragments/   # Reusable compose pieces
+│   │       ├── prometheus.yml
+│   │       ├── grafana.yml
+│   │       ├── redis.yml
+│   │       ├── memcached.yml
+│   │       ├── postgres.yml
+│   │       └── networks.yml
+│   ├── observability/
+│   │   ├── prometheus/
+│   │   └── grafana/
+│   │       ├── provisioning/
+│   │       └── dashboards/      # Dashboard JSON (shared across ALL levels)
+│   └── k8s/                     # Phase 3
+├── systems/
+│   └── url-shortener/
+│       ├── system.yaml          # System metadata
+│       ├── shared/              # Services, load tests — shared across levels
+│       │   ├── services/
+│       │   │   ├── api-gateway/
+│       │   │   ├── shortener/
+│       │   │   └── redirector/
+│       │   └── load-tests/
+│       ├── level-1-observe/     # Level-specific overlays
+│       │   ├── CONTEXT.md
+│       │   ├── QUESTIONS.md
+│       │   ├── config.yaml
+│       │   └── docker-compose.override.yml
+│       ├── level-2-experiment/
+│       │   ├── CONTEXT.md
+│       │   ├── EXPERIMENTS.md
+│       │   ├── config.yaml
+│       │   └── docker-compose.override.yml
+│       ├── level-3-build/
+│       │   ├── CONTEXT.md
+│       │   ├── BRIEFING.md
+│       │   ├── EXPECTED_METRICS.md
+│       │   ├── stubs/hasher.go
+│       │   ├── tests/
+│       │   ├── config.yaml
+│       │   └── docker-compose.override.yml
+│       ├── level-4-fix/
+│       │   ├── CONTEXT.md
+│       │   ├── KNOWN_ISSUES.md
+│       │   ├── SOLUTIONS.md     # Hidden in generated branch
+│       │   ├── bugs/
+│       │   ├── health-checks/
+│       │   ├── config.yaml      # Broken configuration
+│       │   └── docker-compose.override.yml
+│       ├── level-5-scratch/
+│       │   ├── CONTEXT.md
+│       │   ├── BRIEFING.md
+│       │   ├── EXPECTED_METRICS.md
+│       │   ├── contracts/       # OpenAPI specs defining API surface
+│       │   ├── stubs/           # Bare service skeletons (main.go + interfaces)
+│       │   ├── tests/           # Full integration + component tests
+│       │   └── docker-compose.skeleton.yml
+│       └── JOURNAL_TEMPLATE.md
+├── chaos-toolkit/               # Shared chaos scripts
+├── cli/                         # Diagnostic quiz, validation CLI
+├── docs/
+│   └── ai-failure-cases/
+├── generator/                   # Branch generation scripts
+│   ├── generate.sh              # Assembles level branches from main
+│   └── templates/               # Branch assembly templates
+├── .gitattributes               # Line ending config (LF for shell scripts)
+└── Makefile
+```
+
+### Generated Level Branches
+
+CI runs `make generate-branches` on every push to `main`. This produces self-contained level branches:
 
 **Branch naming convention:**
 
@@ -26,28 +113,107 @@ level-4-fix/<system-name>
 level-5-scratch/<system-name>
 ```
 
-**Examples:**
+**Each generated branch uses `system/` (singular) — one focused system per branch:**
 
 ```
-level-1-observe/url-shortener
-level-2-experiment/url-shortener
-level-3-build/url-shortener
-level-4-fix/url-shortener
-level-5-scratch/url-shortener
-level-3-build/rate-limiter
-level-3-build/capstone-twitter
-level-5-scratch/capstone-twitter
+level-3-build/url-shortener (generated):
+├── infrastructure/              # Copied from main (IDENTICAL on all branches)
+│   ├── docker/
+│   ├── observability/
+│   └── k8s/
+├── system/                      # THE ONLY THING THAT CHANGES BETWEEN LEVELS
+│   ├── README.md                # "Where do I start?" + git checkout instructions
+│   ├── system.yaml              # System metadata
+│   ├── services/
+│   │   ├── api-gateway/
+│   │   │   ├── Dockerfile
+│   │   │   └── main.go
+│   │   ├── shortener/
+│   │   │   ├── Dockerfile
+│   │   │   ├── main.go
+│   │   │   └── hasher.go        # STUB on this branch (L3)
+│   │   └── redirector/
+│   │       ├── Dockerfile
+│   │       └── main.go
+│   ├── CONTEXT.md               # "Where you are" — connects to prior levels
+│   ├── BRIEFING.md              # What to build, interfaces, hints
+│   ├── EXPECTED_METRICS.md      # Reference numbers for load test success
+│   ├── JOURNAL_TEMPLATE.md      # Decision journal template (committed)
+│   ├── my-journal.md            # User's journal (.gitignored)
+│   ├── contracts/               # OpenAPI specs (L5), or absent on other levels
+│   ├── tests/                   # Tests for the stubbed component
+│   ├── load-tests/
+│   │   ├── steady-state.js
+│   │   ├── read-spike.js
+│   │   └── hot-key.js
+│   └── docker-compose.yml       # Complete compose file for this level
+├── chaos-toolkit/               # Copied from main (Phase-appropriate scripts only)
+│   ├── scripts/
+│   ├── resilience-challenges/
+│   └── Makefile
+├── cli/
+│   ├── cmd/
+│   │   ├── diagnose.go
+│   │   └── validate.go
+│   └── diagnose/
+│       ├── questions.yaml
+│       └── scoring.yaml
+├── docs/
+│   └── ai-failure-cases/
+├── config.yaml                  # Component configuration for this level
+├── Makefile
+├── .gitattributes
+├── .env.example
+└── .generated-from              # Tracks: main@<commit-hash>
 ```
 
-**Rules:**
+**Key design decision: `system/` (singular).** Each branch contains exactly one system. This means:
+- `git diff level-1-observe/url-shortener level-3-build/url-shortener` shows ONLY `system/` changes — infrastructure is identical
+- Switching between levels of the same system is fast — git only swaps the `system/` directory
+- No ambiguity about which system you're working on
 
-- Each branch is a fully self-contained, runnable state of that system. `git checkout` + `make start` is all a user needs.
-- Users create their own working branch off the level branch to preserve progress:
+### Branch Generation Flow
+
+```
+main branch push
+  → CI runs generator/generate.sh
+  → For each system × each level:
+    1. Start from main's infrastructure/ (copied verbatim)
+    2. Assemble system/ from systems/<name>/shared/ + systems/<name>/level-N/ overlay
+    3. Include only phase-appropriate chaos scripts
+    4. Write .generated-from marker with source commit hash
+    5. Force-push to level-N-name/<system-name> branch
+```
+
+Infrastructure changes propagate automatically. Edit Grafana dashboards on `main` → push → all level branches get updated. One-directional flow: `main` → generated branches. Never the reverse.
+
+### What Changes Between Branches
+
+| Branch element | L1 Observe | L2 Experiment | L3 Build | L4 Fix | L5 Scratch |
+|----------------|-----------|---------------|----------|--------|------------|
+| `system/` service code | Full implementation | Full implementation | One component stubbed | Full but misconfigured | Interface stubs only |
+| `system/` CONTEXT.md | "Welcome" | References L1 | References L1-2 | References L1-3 | References L1-4 |
+| Level-specific doc | QUESTIONS.md | EXPERIMENTS.md | BRIEFING.md | KNOWN_ISSUES.md | BRIEFING.md |
+| `system/` config.yaml | Working defaults | Editable, documented | Working defaults | Broken values | Skeleton |
+| `system/` tests/ | None | None | Component tests | Health checks | Full test suite |
+| `system/` contracts/ | Absent | Absent | Absent | Absent | OpenAPI specs |
+| `system/` docker-compose.yml | Complete | Complete | Complete | Complete (broken config) | Skeleton |
+| `infrastructure/` | **IDENTICAL** | **IDENTICAL** | **IDENTICAL** | **IDENTICAL** | **IDENTICAL** |
+| Grafana dashboards | **IDENTICAL** | **IDENTICAL** | **IDENTICAL** | **IDENTICAL** | **IDENTICAL** |
+| `chaos-toolkit/` | Phase-appropriate | Phase-appropriate | Phase-appropriate | Phase-appropriate | Phase-appropriate |
+
+**Critical rule:** Grafana dashboard configuration is IDENTICAL across all five levels for every system. Users must see the same panels every time so they build familiarity with the tooling, not just the code.
+
+### User Workflow
+
+**Default: simple git checkout (one system at a time)**
 
 ```bash
 git checkout level-3-build/url-shortener
 git checkout -b my-progress/url-shortener-level-3
 # ... work on the challenge ...
+make start && make load-test && make dashboard
+
 # Need a refresher on what healthy looks like?
 git stash
 git checkout level-1-observe/url-shortener
@@ -57,102 +223,25 @@ git checkout my-progress/url-shortener-level-3
 git stash pop
 ```
 
-- Users can pause, check out any level branch for a refresher, then return to their working branch without losing progress.
+**Advanced: parallel systems via worktrees (CLI-managed)**
 
-### Branch Content
+For users working on multiple systems simultaneously (or for the capstone):
 
-Each branch contains the complete runnable state for that system at that level:
+```bash
+# Start a second system without leaving your current branch
+make start-parallel rate-limiter 1
+# CLI does: git worktree add .labs/rate-limiter level-1-observe/rate-limiter
+# Symlinks infrastructure/ from the main checkout
 
-```
-systemdesignlab/                       # On branch: level-3-build/url-shortener
-├── infrastructure/
-│   ├── docker/
-│   │   ├── base/                      # Base Dockerfiles (Go service)
-│   │   └── compose-fragments/         # Reusable compose pieces
-│   │       ├── prometheus.yml
-│   │       ├── grafana.yml
-│   │       ├── redis.yml
-│   │       ├── memcached.yml
-│   │       ├── postgres.yml
-│   │       └── networks.yml
-│   ├── observability/
-│   │   ├── prometheus/                # Prometheus configs, alert rules
-│   │   └── grafana/
-│   │       ├── provisioning/          # Datasource + dashboard provisioning
-│   │       └── dashboards/            # Dashboard JSON (IDENTICAL across all levels)
-│   └── k8s/                           # Phase 3 — K8s manifests
-│
-├── systems/
-│   └── url-shortener/
-│       ├── README.md                  # "Where do I start?" + git checkout instructions
-│       ├── system.yaml                # System metadata
-│       ├── services/
-│       │   ├── api-gateway/
-│       │   │   ├── Dockerfile
-│       │   │   └── main.go
-│       │   ├── shortener/
-│       │   │   ├── Dockerfile
-│       │   │   ├── main.go
-│       │   │   └── hasher.go          # STUB on this branch (L3)
-│       │   └── redirector/
-│       │       ├── Dockerfile
-│       │       └── main.go
-│       ├── CONTEXT.md                 # "Where you are" — connects to prior levels
-│       ├── BRIEFING.md                # Level 3: what to build, interfaces, hints
-│       ├── EXPECTED_METRICS.md        # Reference numbers for load test success
-│       ├── JOURNAL_TEMPLATE.md        # Decision journal template (committed)
-│       ├── my-journal.md              # User's journal (.gitignored)
-│       ├── tests/                     # Tests for the stubbed component
-│       ├── load-tests/
-│       │   ├── steady-state.js
-│       │   ├── read-spike.js
-│       │   └── hot-key.js
-│       └── docker-compose.yml         # Complete compose file for this level
-│
-├── chaos-toolkit/
-│   ├── scripts/                       # Chaos scripts
-│   ├── RESILIENCE_CHALLENGE.md        # Per-chaos-command challenge docs
-│   └── Makefile                       # Chaos make targets
-│
-├── cli/
-│   ├── cmd/
-│   │   ├── diagnose.go
-│   │   └── validate.go
-│   └── diagnose/
-│       ├── questions.yaml             # Community-extensible question bank
-│       └── scoring.yaml               # Transparent scoring logic
-│
-├── docs/
-│   └── ai-failure-cases/             # AI failure case library
-│
-├── config.yaml                        # Component configuration
-├── Makefile                           # Top-level make targets
-└── .env.example
+# Work in the parallel system
+cd .labs/rate-limiter/system/
+# ... independent git branch, independent work ...
+
+# Clean up when done
+make clean-parallel rate-limiter
 ```
 
-**What changes between branches for the same system:**
-
-| Branch element | L1 Observe | L2 Experiment | L3 Build | L4 Fix | L5 Scratch |
-|----------------|-----------|---------------|----------|--------|------------|
-| Service code | Full implementation | Full implementation | One component stubbed | Full but misconfigured | Interface stubs only |
-| CONTEXT.md | "Welcome" | References L1 | References L1-2 | References L1-3 | References L1-4 |
-| Level-specific doc | QUESTIONS.md | EXPERIMENTS.md | BRIEFING.md | KNOWN_ISSUES.md | BRIEFING.md |
-| config.yaml | Working defaults | Editable, documented | Working defaults | Broken values | Skeleton |
-| tests/ | None | None | Component tests | Health checks | Full test suite |
-| docker-compose.yml | Complete | Complete | Complete | Complete (broken config) | Skeleton |
-| Grafana dashboards | **IDENTICAL** | **IDENTICAL** | **IDENTICAL** | **IDENTICAL** | **IDENTICAL** |
-| load-tests/ | Present | Present | Present | Present | Present |
-| EXPECTED_METRICS.md | Reference values | Reference values | Reference values | Reference values | Reference values |
-
-**Critical rule:** Grafana dashboard configuration is IDENTICAL across all five levels for every system. Users must see the same panels every time so they build familiarity with the tooling, not just the code.
-
-### Branch Maintenance
-
-Infrastructure changes (shared Dockerfiles, Prometheus config, Grafana dashboards) must propagate to all branches. This is managed through:
-
-- A `main` branch containing shared infrastructure and tooling
-- CI automation that rebases level branches onto `main` when infrastructure changes
-- Per-system branch sets that share the same infrastructure base
+The `.labs/` directory is gitignored. Worktrees are optional — the default single-checkout workflow covers most users.
 
 ### Per-System README
 
@@ -179,6 +268,49 @@ git checkout my-progress/url-shortener-level-3
 
 ### Not Sure Which Level?
 make diagnose
+```
+
+### YAML Schemas
+
+**`system.yaml`** — System metadata (present on every branch in `system/`):
+
+```yaml
+name: url-shortener
+description: "URL shortening service with consistent hashing and caching"
+level: 3
+level_name: "Build the Missing Piece"
+concepts:
+  - consistent-hashing
+  - caching
+  - read-heavy-optimization
+  - sharding
+  - cache-eviction
+services:
+  - api-gateway
+  - shortener
+  - redirector
+prerequisites:
+  - docker
+  - go-1.21
+pluggable:
+  cache: [redis, memcached]
+  database: [postgres]         # cassandra added in Phase 2
+estimated_time: "2-4 hours"
+generated_from: "main@abc1234"
+```
+
+### .gitattributes
+
+The repo includes a `.gitattributes` file to handle line endings across platforms. This is critical because chaos toolkit shell scripts will break with CRLF endings:
+
+```
+* text=auto
+*.sh text eol=lf
+*.js text eol=lf
+*.go text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+Makefile text eol=lf
 ```
 
 ### Pluggable Components
@@ -278,18 +410,29 @@ questions:
 
 ### Scoring Logic
 
-Scoring is transparent and documented in `cli/diagnose/scoring.yaml`:
+Scoring is transparent and documented in `cli/diagnose/scoring.yaml`. Each correct answer adds a point to the level bucket specified by the question's `maps_to_level` field — not a generic total:
 
 ```yaml
 scoring:
-  # Each correct answer adds points to the corresponding level bucket
-  # Recommended level = highest level where user scored >= threshold
-  level_thresholds:
-    level-1: 0          # Default starting point
-    level-2: 1          # Got at least 1 config/trade-off question right
-    level-3: 2          # Got at least 2 design questions right
-    level-4: 3          # Got at least 3 including debugging scenarios
-    level-5: 4          # Got 4+ right, including architecture questions
+  # Each correct answer increments the score for its maps_to_level bucket.
+  # Example: a question with maps_to_level: 3 adds 1 to the level-3 bucket.
+  #
+  # Recommended level = lowest level where the user has NOT demonstrated
+  # competence (scored below threshold). This ensures users don't skip
+  # levels they're weak in.
+  #
+  # A user who aces level-3 and level-5 questions but misses level-2
+  # questions gets recommended Level 2 — they have a gap.
+
+  level_buckets:
+    level-2: { questions_tagged: 1, threshold: 1 }  # 1 question, need 1 correct
+    level-3: { questions_tagged: 2, threshold: 1 }  # 2 questions, need 1 correct
+    level-4: { questions_tagged: 1, threshold: 1 }  # 1 question, need 1 correct
+    level-5: { questions_tagged: 1, threshold: 1 }  # 1 question, need 1 correct
+
+  # Level 1 is always recommended as a starting point regardless of score.
+  # Users who pass all buckets are recommended Level 5.
+  default_recommendation: level-1
 ```
 
 ### Output
@@ -615,30 +758,67 @@ Redirect:
 
 ## Capstone System — Twitter Clone
 
+**Phase dependency:** The capstone is a Phase 3 deliverable. It requires all four prerequisite systems (URL Shortener, Rate Limiter, Feed System, Notification Service) to be built and published as Docker images first.
+
 ### Why a Capstone
 
 Real system design interviews do not test systems in isolation. Interviewers ask: "Design Twitter." That requires reasoning about how components interact, where failures cascade, and what trade-offs emerge from integration. The capstone simulates this.
 
 ### Location
 
-`systems/capstone-twitter/` — present on branches `level-3-build/capstone-twitter` and `level-5-scratch/capstone-twitter` only.
+`systems/capstone-twitter/` on `main`. Generated to branches `level-3-build/capstone-twitter` and `level-5-scratch/capstone-twitter`.
 
-### What Users Must Integrate
+### Architecture: Pre-Built Subsystem Images
 
-| Component | Role in Twitter Clone | Source System |
-|-----------|----------------------|---------------|
-| URL Shortener | Shortened links in tweets (t.co-style) | systems/url-shortener |
-| Rate Limiter | Per-user posting limits, API throttling | systems/rate-limiter |
-| Feed System | Fan-out on write vs read, timeline generation | systems/feed-system |
-| Notification Service | Async delivery of mentions, likes, follows via message queue | systems/notification-service |
+The capstone's learning objective is **integration, not re-implementation**. Users have already built each subsystem individually. Subsystems run as pre-built Docker images — the user focuses on wiring them together.
+
+This mirrors the real world: when you design Twitter in an interview, you don't re-implement Redis. You treat subsystems as black boxes with known APIs and focus on how they compose.
+
+| Component | Role in Twitter Clone | Docker Image |
+|-----------|----------------------|-------------|
+| URL Shortener | Shortened links in tweets (t.co-style) | `systemdesignlab/url-shortener:reference` |
+| Rate Limiter | Per-user posting limits, API throttling | `systemdesignlab/rate-limiter:reference` |
+| Feed System | Fan-out on write vs read, timeline generation | `systemdesignlab/feed-system:reference` |
+| Notification Service | Async delivery of mentions, likes, follows via message queue | `systemdesignlab/notification-service:reference` |
+
+**Capstone docker-compose.yml (Level 3):**
+
+```yaml
+services:
+  # Pre-built subsystems — user does NOT modify these
+  url-shortener:
+    image: systemdesignlab/url-shortener:reference
+  rate-limiter:
+    image: systemdesignlab/rate-limiter:reference
+  feed-system:
+    image: systemdesignlab/feed-system:reference
+  notification-service:
+    image: systemdesignlab/notification-service:reference
+
+  # User builds these — the integration layer
+  api-orchestrator:
+    build: ./system/services/api-orchestrator
+  timeline-service:
+    build: ./system/services/timeline-service
+```
+
+**Level 5 bonus:** Users can optionally swap pre-built images for their own Level 5 implementations, creating a natural reward for completing the individual systems:
+
+```yaml
+  url-shortener:
+    # Option 1: Use the reference image (default)
+    image: systemdesignlab/url-shortener:reference
+    # Option 2: Use your own Level 5 build
+    # build: ../path/to/your/url-shortener/
+```
 
 ### Capstone Levels
 
 The capstone only has Level 3 and Level 5 — by the time users reach the capstone, they have already observed and experimented with individual systems.
 
-**Level 3 — Build the Missing Piece:** Individual systems are running. The user must implement the integration layer: API orchestration, cross-service communication, failure handling between services.
+**Level 3 — Build the Missing Piece:** Subsystem images are running. The user must implement the integration layer: API orchestration, cross-service communication, failure handling between services.
 
-**Level 5 — Build from Scratch:** Interface definitions and API contracts only. The user builds the entire integrated system.
+**Level 5 — Build from Scratch:** Interface definitions and API contracts only. Pre-built subsystem images are available as a fallback, but the user is expected to wire everything from scratch.
 
 ### DESIGN_DECISIONS.md
 
@@ -733,7 +913,9 @@ chaos-toolkit/
 
 ### Chaos Commands
 
-Each command is both a Make target and a standalone bash script:
+Each command is both a Make target and a standalone bash script. Generated level branches only include phase-appropriate scripts.
+
+**Phase 1 commands** (included on URL Shortener branches):
 
 **`make chaos-kill-cache`**
 - Kills Redis/Memcached container for 60 seconds, then restores it
@@ -745,23 +927,25 @@ Each command is both a Make target and a standalone bash script:
 - User must observe impact on P99 and consider circuit breaker patterns
 - Tests: Which Golden Signal degrades first? How does the cache absorb the impact?
 
-**`make chaos-kill-shard`**
-- Takes one database shard offline
-- User must observe data unavailability and implement fallback reads
-- Tests: What percentage of requests fail? How does the hash ring handle it?
-
 **`make chaos-overload`**
 - Runs 10x normal traffic via k6 for 2 minutes
 - User must observe which component degrades first
 - Tests: What is the system's breaking point? Which resource saturates?
 
-**`make chaos-corrupt-queue`**
+**`make chaos-restore`**
+- Undoes all chaos — restores healthy state
+
+**Phase 2+ commands** (included on branches once prerequisite systems exist):
+
+**`make chaos-kill-shard`** *(Phase 2 — requires sharded database)*
+- Takes one database shard offline
+- User must observe data unavailability and implement fallback reads
+- Tests: What percentage of requests fail? How does the hash ring handle it?
+
+**`make chaos-corrupt-queue`** *(Phase 2 — requires message queue)*
 - Drops 20% of Kafka/RabbitMQ messages randomly
 - User must implement dead letter queue and retry logic
 - Tests: Are notifications eventually delivered? What is the message loss rate?
-
-**`make chaos-restore`**
-- Undoes all chaos — restores healthy state
 
 ### Cross-Platform Note
 
@@ -960,7 +1144,7 @@ make diagnose                 # Diagnostic quiz → recommends level + branch
 make start                    # Spin up Docker Compose for current branch
 make load-test                # Run k6 against running system
 make load-test SCENARIO=x     # Run specific scenario (read-spike, hot-key)
-make redeploy                 # Rebuild and restart after config changes
+make redeploy                 # docker compose down && docker compose up (full restart, preserves volumes)
 make dashboard                # Open Grafana in browser
 make switch-cache memcached   # Swap cache provider in config
 make chaos-kill-cache         # Kill cache for 60s
@@ -973,6 +1157,8 @@ make validate                 # Run level-appropriate tests
 make reveal-solution          # Unhide SOLUTIONS.md (Level 4)
 make journal                  # Open decision journal
 make clean                    # Tear down containers
+make start-parallel <sys> <n> # Create worktree for a second system (advanced)
+make clean-parallel <sys>     # Remove parallel worktree
 ```
 
 ## Phasing Strategy
