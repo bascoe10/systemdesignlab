@@ -21,4 +21,4 @@ literal: finish with `sdl validate`, which records your machine's healthy
 numbers into `.sdl/baseline.json`. Levels 3–5 judge your implementations
 against *your* baseline, so don't skip this.
 
-Next: `sdl level 2` (or `sdl level 2`)
+Next: `sdl level 2`
