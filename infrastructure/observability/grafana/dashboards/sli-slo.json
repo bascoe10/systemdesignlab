@@ -1,0 +1,202 @@
+{
+  "uid": "sdl-sli-slo",
+  "title": "SLI / SLO Tracker",
+  "tags": [
+    "systemdesignlab"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "10s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 23,
+      "type": "text",
+      "title": "",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "## Service Level Objectives \u2014 URL Shortener\n| SLI | SLO |\n|---|---|\n| Redirect availability (non-5xx) | **99.5%** over 30m |\n| Fast redirects (< 100ms) | **99.5%** over 30m |\n\nOn Level 5 you define and justify your own SLOs in the decision journal."
+      }
+    },
+    {
+      "id": 24,
+      "type": "stat",
+      "title": "Redirect availability (30m)",
+      "description": "SLO: 99.5% of redirects succeed.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 12,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0.995
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "1 - ((sum(rate(http_requests_total{job=\"redirector\",route=\"redirect\",code=~\"5..\"}[30m])) or vector(0)) / clamp_min(sum(rate(http_requests_total{job=\"redirector\",route=\"redirect\"}[30m])), 0.001))",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 25,
+      "type": "stat",
+      "title": "Redirects under 100ms (30m)",
+      "description": "SLO: 99.5% of redirects complete in under 100ms.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 3,
+        "w": 12,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0.995
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(http_request_duration_seconds_bucket{job=\"redirector\",route=\"redirect\",le=\"0.1\"}[30m])) / clamp_min(sum(rate(http_request_duration_seconds_count{job=\"redirector\",route=\"redirect\"}[30m])), 0.001)",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 26,
+      "type": "timeseries",
+      "title": "SLIs over time (5m window)",
+      "description": "The 0.995 objective is your floor. Time spent below it burns error budget.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "max": 1.01,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "1 - ((sum(rate(http_requests_total{job=\"redirector\",route=\"redirect\",code=~\"5..\"}[5m])) or vector(0)) / clamp_min(sum(rate(http_requests_total{job=\"redirector\",route=\"redirect\"}[5m])), 0.001))",
+          "legendFormat": "availability",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(http_request_duration_seconds_bucket{job=\"redirector\",route=\"redirect\",le=\"0.1\"}[5m])) / clamp_min(sum(rate(http_request_duration_seconds_count{job=\"redirector\",route=\"redirect\"}[5m])), 0.001)",
+          "legendFormat": "fast redirect ratio",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    }
+  ]
+}

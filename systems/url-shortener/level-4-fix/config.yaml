@@ -1,0 +1,27 @@
+# Lab configuration.
+cache:
+  provider: redis
+  nodes: [cache-1, cache-2, cache-3]
+  ttl: 1s
+  max_memory: 8mb
+  eviction_policy: allkeys-lru
+
+hashing:
+  virtual_nodes: 1
+
+database:
+  provider: postgres
+  host: db
+  port: 5432
+  name: shortener
+  user: lab
+  password: lab
+  pool_size: 2
+
+gateway:
+  rate_limit_rps: 10000
+  burst: 5000
+
+services:
+  shortener_url: http://shortener:8081
+  redirector_url: http://redirector:8082

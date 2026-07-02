@@ -1,0 +1,15 @@
+# Shared Prometheus config — identical on every level branch.
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: api-gateway
+    static_configs:
+      - targets: ["api-gateway:8080"]
+  - job_name: shortener
+    static_configs:
+      - targets: ["shortener:8081"]
+  - job_name: redirector
+    static_configs:
+      - targets: ["redirector:8082"]

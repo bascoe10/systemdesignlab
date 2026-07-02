@@ -1,0 +1,100 @@
+# Diagnostic quiz question bank. Community contributions welcome — see
+# CONTRIBUTING.md. Each question maps to the level whose skills it tests;
+# scoring buckets are defined in scoring.yaml.
+questions:
+  - id: cache-eviction
+    category: caching
+    difficulty: intermediate
+    question: |
+      Your URL shortener serves 10M redirects/day. 90% of traffic goes to
+      URLs created in the last 24 hours. Which cache eviction policy
+      maximizes hit rate?
+    options:
+      a: "FIFO — oldest entries evicted first"
+      b: "LRU — least recently used evicted first"
+      c: "LFU — least frequently used evicted first"
+      d: "Random — random entries evicted"
+    correct: b
+    explanation: |
+      LRU naturally keeps hot URLs (recently created, frequently accessed)
+      in cache while evicting stale long-tail URLs. LFU would keep old
+      viral URLs too long. FIFO ignores access patterns entirely.
+    maps_to_level: 2
+
+  - id: mod-n-rehash
+    category: sharding
+    difficulty: intermediate
+    question: |
+      Your cache spreads keys across 3 nodes with `hash(key) % 3`. Traffic
+      grows and you add a 4th node. What happens at the moment you switch
+      to `% 4`?
+    options:
+      a: "Nothing — new keys go to the new node, old keys stay put"
+      b: "~25% of keys move, matching the new node's fair share"
+      c: "~75% of keys map to a different node — a cache miss storm hits the database"
+      d: "The cache rebalances itself in the background"
+    correct: c
+    explanation: |
+      With mod-N, changing N remaps almost every key (~1 - 1/4 keep their
+      node). Every remapped key is a cold read — the database absorbs the
+      miss storm. Consistent hashing exists precisely so that adding a node
+      moves only ~1/N of keys.
+    maps_to_level: 3
+
+  - id: cap-theorem
+    category: consistency
+    difficulty: advanced
+    question: |
+      Your distributed cache spans 3 data centers. A network partition
+      isolates DC-3. Users in DC-3 are reading stale data. What do you do?
+    options:
+      a: "Return errors to DC-3 users until partition heals (CP)"
+      b: "Serve stale data with a staleness indicator (AP)"
+      c: "Synchronously replicate writes to all DCs before acknowledging"
+      d: "Route all DC-3 traffic to DC-1 over the public internet"
+    correct: b
+    explanation: |
+      For a URL shortener, availability matters more than consistency.
+      A stale URL redirect is better than no redirect. Option C is
+      impossible during a partition. Option D adds latency and a SPOF.
+    maps_to_level: 3
+
+  - id: tail-latency-diagnosis
+    category: debugging
+    difficulty: advanced
+    question: |
+      Under steady load: p50 is 8ms, p99 is 900ms, error rate ~0%, CPU is
+      low everywhere, and the DB connection pool gauge is pinned at its
+      maximum. What's the most likely root cause?
+    options:
+      a: "The cache is too small and evicting hot keys"
+      b: "A slow query is missing an index"
+      c: "Requests that miss the cache queue waiting for a DB connection"
+      d: "The load balancer is unevenly distributing traffic"
+    correct: c
+    explanation: |
+      A pinned pool with low CPU and a healthy p50 means most requests are
+      fine (cache hits) while the cache-miss minority queues for a
+      connection — pure wait time, so no errors and no CPU. A missing index
+      would show high DB query execution time; a tiny cache would also drag
+      p50. Saturation-without-errors is the classic tail-latency signature.
+    maps_to_level: 4
+
+  - id: slo-choice
+    category: reliability
+    difficulty: advanced
+    question: |
+      You're defining the SLO for the redirect path of a URL shortener.
+      Which formulation is most useful?
+    options:
+      a: "Average redirect latency below 50ms"
+      b: "99.5% of redirects complete in under 100ms, measured over 30 days"
+      c: "Zero errors during business hours"
+      d: "p99 latency below 100ms at all times"
+    correct: b
+    explanation: |
+      An SLO needs a target ratio, a threshold, and a window — that's what
+      makes an error budget computable. Averages hide the tail entirely;
+      "zero errors" and "at all times" leave no budget, so any blip is a
+      violation and the objective stops guiding decisions.
+    maps_to_level: 5

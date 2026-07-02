@@ -1,0 +1,42 @@
+// LEVEL 5 SKELETON — shortener (write path)
+//
+// Contract: system/contracts/shortener.yaml. Generate a short code, persist
+// code→url in Postgres, write through to the cache node picked by YOUR
+// consistent hash ring.
+//
+// Building blocks you may use (or replace): internal/config, internal/store,
+// internal/cache, internal/obs. internal/ring is a stub — bring your
+// Level 3 implementation.
+package main
+
+import (
+	"log"
+	"net/http"
+
+	"github.com/systemdesignlab/url-shortener/internal/obs"
+)
+
+func notImplemented(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "not implemented — see BRIEFING.md", http.StatusNotImplemented)
+}
+
+func main() {
+	// TODO: load config, open the store, build the cache cluster.
+	// TODO: POST /api/shorten —
+	//   1. validate the URL (absolute http/https only → 400)
+	//   2. generate a unique code (what alphabet? what length? what happens
+	//      on collision? journal these decisions)
+	//   3. insert into Postgres
+	//   4. write-through to the cache — why write-through here but
+	//      cache-aside in the redirector? journal it.
+	//   5. respond 201 {"code", "short_url"}
+	// TODO: make /healthz return 503 when the database is unreachable.
+
+	mux := http.NewServeMux()
+	mux.Handle("/api/shorten", obs.Instrument("shorten", http.HandlerFunc(notImplemented)))
+	mux.Handle("/metrics", obs.MetricsHandler())
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) })
+
+	log.Println("shortener (skeleton) listening on :8081")
+	log.Fatal(http.ListenAndServe(":8081", mux))
+}

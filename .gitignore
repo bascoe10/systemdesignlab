@@ -1,0 +1,19 @@
+# Local environment
+.env
+
+# Assembled level workspaces (main branch dev mode)
+.lab/
+
+# Parallel-system worktrees
+.labs/
+
+# Personal artifacts — never committed
+my-journal.md
+# Per-machine healthy baseline captured by Level 1 validate
+.baseline.json
+# Root-anchored: the hidden copy under system/.solutions/ must stay tracked
+/SOLUTIONS.md
+
+# Build output
+bin/
+*.test

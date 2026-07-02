@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: |
+            systems/url-shortener/shared/services/go.sum
+            cli/go.sum
+
+      - name: Test services
+        working-directory: systems/url-shortener/shared/services
+        run: |
+          go vet ./...
+          go test -race ./internal/...
+          go vet -tags integration ./integration/
+
+      - name: Build CLI
+        working-directory: cli
+        run: |
+          go vet ./...
+          go build -o /dev/null .
+
+      - name: Shellcheck chaos + generator scripts
+        run: |
+          sudo apt-get install -y shellcheck
+          shellcheck chaos-toolkit/scripts/*.sh generator/generate.sh
+
+      - name: Generate every level and validate compose config
+        run: |
+          for level in 1 2 3 4 5; do
+            bash generator/generate.sh --out /tmp/lab-$level url-shortener $level
+            COMPOSE_PROFILES=redis docker compose -f /tmp/lab-$level/system/docker-compose.yml config -q
+            COMPOSE_PROFILES=memcached docker compose -f /tmp/lab-$level/system/docker-compose.yml config -q
+          done
+
+      - name: Generated branches must compile (stub levels included)
+        run: |
+          for level in 3 5; do
+            (cd /tmp/lab-$level/system/services && go build ./...)
+          done
+
+      - name: Dashboards are in sync with the generator script
+        working-directory: infrastructure/observability/grafana
+        run: |
+          python3 gen_dashboards.py
+          git diff --exit-code dashboards/

@@ -1,0 +1,44 @@
+openapi: "3.0.3"
+info:
+  title: URL Shortener — shortener (internal, :8081)
+  version: "1.0"
+  description: >
+    Write path. Generates a unique short code, persists code→url in
+    Postgres, and writes through to the cache node selected by the
+    consistent hash ring. Retries code generation on collision.
+paths:
+  /api/shorten:
+    post:
+      summary: Create a short URL (called by api-gateway)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: { type: string, format: uri }
+      responses:
+        "201":
+          description: Created; entry persisted and cached (write-through)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, short_url]
+                properties:
+                  code: { type: string }
+                  short_url: { type: string }
+        "400": { description: Invalid body or URL }
+        "500": { description: Persistence failure }
+  /healthz:
+    get:
+      summary: Readiness — must fail if the database is unreachable
+      responses:
+        "200": { description: OK }
+        "503": { description: Database unreachable }
+  /metrics:
+    get:
+      responses:
+        "200": { description: Prometheus exposition format }

@@ -1,0 +1,19 @@
+{
+  "name": "SystemDesignLab",
+  "image": "mcr.microsoft.com/devcontainers/go:1.23-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "forwardPorts": [8080, 3000, 9090],
+  "portsAttributes": {
+    "8080": { "label": "API Gateway" },
+    "3000": { "label": "Grafana" },
+    "9090": { "label": "Prometheus" }
+  },
+  "postCreateCommand": "go version && docker --version",
+  "customizations": {
+    "vscode": {
+      "extensions": ["golang.go"]
+    }
+  }
+}

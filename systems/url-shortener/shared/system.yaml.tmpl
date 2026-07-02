@@ -1,0 +1,23 @@
+# Rendered to system/system.yaml by generator/generate.sh.
+name: url-shortener
+description: "URL shortening service with consistent hashing and caching"
+level: __LEVEL__
+level_name: "__LEVEL_NAME__"
+concepts:
+  - consistent-hashing
+  - caching
+  - read-heavy-optimization
+  - sharding
+  - cache-eviction
+services:
+  - api-gateway
+  - shortener
+  - redirector
+prerequisites:
+  - docker
+  - go-1.23
+pluggable:
+  cache: [redis, memcached]
+  database: [postgres]
+estimated_time: "__ESTIMATED_TIME__"
+generated_from: "__GENERATED_FROM__"

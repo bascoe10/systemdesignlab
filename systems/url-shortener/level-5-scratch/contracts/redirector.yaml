@@ -1,0 +1,37 @@
+openapi: "3.0.3"
+info:
+  title: URL Shortener — redirector (internal, :8082)
+  version: "1.0"
+  description: >
+    Read-heavy path. Cache-aside lookup: consult the cache node selected by
+    the consistent hash ring; on miss, read Postgres and backfill the cache
+    asynchronously. Cache unavailability must degrade to DB-only serving,
+    never to errors.
+paths:
+  /r/{code}:
+    get:
+      summary: Resolve a short code (called by api-gateway)
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "302":
+          description: Found (from cache or database)
+          headers:
+            Location:
+              schema: { type: string, format: uri }
+        "400": { description: Malformed code }
+        "404": { description: Unknown short code }
+        "500": { description: Database lookup failure }
+  /healthz:
+    get:
+      summary: Readiness — must fail if the database is unreachable
+      responses:
+        "200": { description: OK }
+        "503": { description: Database unreachable }
+  /metrics:
+    get:
+      responses:
+        "200": { description: Prometheus exposition format }
