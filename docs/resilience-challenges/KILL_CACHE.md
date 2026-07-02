@@ -2,9 +2,9 @@
 
 ## What Gets Injected
 
-`make chaos-kill-cache` — all cache nodes stopped for 60 seconds
-(`OUTAGE=120 make chaos-kill-cache` to change), then restarted.
-Run it with a load test going: `make load-test` in another terminal.
+`sdl chaos kill-cache` — all cache nodes stopped for 60 seconds
+(`sdl chaos kill-cache --outage 120` to change), then restarted.
+Run it with a load test going: `sdl load` in another terminal.
 
 ## What to Look For in Grafana
 

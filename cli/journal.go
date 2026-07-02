@@ -6,10 +6,22 @@ import (
 	"strings"
 )
 
+// The journal lives at the repo root (gitignored) so it spans levels and
+// survives workspace parking and resets — it's the artifact you keep.
 const journalPath = "my-journal.md"
-const templatePath = "system/JOURNAL_TEMPLATE.md"
+const templatePath = "workspace/JOURNAL_TEMPLATE.md"
 
 func cmdJournal() error {
+	root, err := findRoot()
+	if err != nil {
+		return err
+	}
+	if _, err := requireState(root); err != nil {
+		return err
+	}
+	if err := os.Chdir(root); err != nil {
+		return err
+	}
 	if _, err := os.Stat(journalPath); err == nil {
 		fmt.Printf("%s already exists — open it in your editor.\n", journalPath)
 		return nil
@@ -39,7 +51,7 @@ var requiredSections = []string{
 func journalFilled() bool {
 	journal, err := os.ReadFile(journalPath)
 	if err != nil {
-		fmt.Printf("       (no %s — run `make journal` to create it)\n", journalPath)
+		fmt.Printf("       (no %s — run `sdl journal` to create it)\n", journalPath)
 		return false
 	}
 	tmpl, _ := os.ReadFile(templatePath)

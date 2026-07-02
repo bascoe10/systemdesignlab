@@ -5,9 +5,8 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -16,12 +15,6 @@ const (
 	warn = "[warn]"
 	skip = "[skip]"
 )
-
-type systemMeta struct {
-	Name      string `yaml:"name"`
-	Level     int    `yaml:"level"`
-	LevelName string `yaml:"level_name"`
-}
 
 // Live-metric thresholds. Ratios (hit rate, skew, error ratio) are
 // machine-independent → absolute targets. Latency is machine-dependent →
@@ -36,27 +29,30 @@ const (
 	trafficQuery       = `sum(increase(http_requests_total{route!=""}[2h]))`
 	// Numerators are wrapped in `or vector(0)`: sum() over an empty vector
 	// returns no data, and "no 5xx at all" must read as 0%, not an error.
-	hitRateQuery       = `(sum(rate(cache_requests_total{op="get",result="hit"}[10m])) or vector(0)) / clamp_min(sum(rate(cache_requests_total{op="get",result=~"hit|miss|bypass"}[10m])), 0.001)`
-	p99Query           = `histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{job="api-gateway"}[10m])))`
-	p50Query           = `histogram_quantile(0.50, sum by (le) (rate(http_request_duration_seconds_bucket{job="api-gateway"}[10m])))`
-	nodeSkewQuery      = `stddev(sum by (node) (increase(cache_node_requests_total[10m]))) / clamp_min(avg(sum by (node) (increase(cache_node_requests_total[10m]))), 1)`
-	errRatioQuery      = `(sum(rate(http_requests_total{job="api-gateway",code=~"5.."}[10m])) or vector(0)) / clamp_min(sum(rate(http_requests_total{job="api-gateway"}[10m])), 0.001)`
+	hitRateQuery  = `(sum(rate(cache_requests_total{op="get",result="hit"}[10m])) or vector(0)) / clamp_min(sum(rate(cache_requests_total{op="get",result=~"hit|miss|bypass"}[10m])), 0.001)`
+	p99Query      = `histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{job="api-gateway"}[10m])))`
+	p50Query      = `histogram_quantile(0.50, sum by (le) (rate(http_request_duration_seconds_bucket{job="api-gateway"}[10m])))`
+	nodeSkewQuery = `stddev(sum by (node) (increase(cache_node_requests_total[10m]))) / clamp_min(avg(sum by (node) (increase(cache_node_requests_total[10m]))), 1)`
+	errRatioQuery = `(sum(rate(http_requests_total{job="api-gateway",code=~"5.."}[10m])) or vector(0)) / clamp_min(sum(rate(http_requests_total{job="api-gateway"}[10m])), 0.001)`
 )
 
 func cmdValidate() error {
-	raw, err := os.ReadFile("system/system.yaml")
+	root, err := findRoot()
 	if err != nil {
-		return fmt.Errorf("system/system.yaml not found — validate runs on a level branch (or via `make validate` on main): %w", err)
+		return err
 	}
-	var meta systemMeta
-	if err := yaml.Unmarshal(raw, &meta); err != nil {
-		return fmt.Errorf("parse system.yaml: %w", err)
+	st, err := requireState(root)
+	if err != nil {
+		return err
+	}
+	if err := os.Chdir(root); err != nil {
+		return err
 	}
 
-	fmt.Printf("Validating %s — Level %d (%s)\n\n", meta.Name, meta.Level, meta.LevelName)
+	fmt.Printf("Validating %s — Level %d (%s)\n\n", st.System, st.Level, levelNames[st.Level])
 
 	failed := false
-	switch meta.Level {
+	switch st.Level {
 	case 1:
 		failed = !validateLevel1()
 	case 2:
@@ -67,8 +63,6 @@ func cmdValidate() error {
 		failed = !validateLevel4()
 	case 5:
 		failed = !validateLevel5()
-	default:
-		return fmt.Errorf("unknown level %d in system.yaml", meta.Level)
 	}
 
 	fmt.Println()
@@ -91,13 +85,11 @@ func check(ok bool, tag, msg string) bool {
 
 // --- Level 1: watch the system under load, then calibrate ------------------
 // Level 1 doubles as calibration: it records THIS machine's healthy numbers
-// into .baseline.json, and Levels 3-5 measure latency against them. That
-// makes "know your baseline" literal, and kills false failures on slow
-// hardware.
+// into .sdl/baseline.json, and Levels 3-5 measure latency against them.
 
 func validateLevel1() bool {
 	if !promReachable() {
-		fmt.Printf("%s Prometheus not reachable at localhost:9090 — run `make start` first\n", fail)
+		fmt.Printf("%s Prometheus not reachable at localhost:9090 — run `sdl start` first\n", fail)
 		return false
 	}
 	total, err := promQuery(trafficQuery)
@@ -107,7 +99,7 @@ func validateLevel1() bool {
 	b, err := captureBaseline()
 	if err != nil {
 		fmt.Printf("%s baseline calibration: %v\n", fail, err)
-		fmt.Println("       (run `make load-test` to steady state, then `make validate` again)")
+		fmt.Println("       (run `sdl load` to steady state, then `sdl validate` again)")
 		ok = false
 	} else {
 		fmt.Printf("%s baseline calibrated for this machine → %s\n", pass, baselinePath)
@@ -116,29 +108,29 @@ func validateLevel1() bool {
 		fmt.Println("       These are YOUR healthy numbers. Levels 3-5 validate against them.")
 	}
 
-	fmt.Println("\nNow answer the prompts in system/QUESTIONS.md — in writing.")
+	fmt.Println("\nNow answer the prompts in workspace/QUESTIONS.md — in writing.")
 	fmt.Println("When you can explain the p50/p99 gap and the hit-rate warmup curve,")
-	fmt.Println("you're ready for: git checkout level-2-experiment/url-shortener")
+	fmt.Println("you're ready for: sdl level 2")
 	return ok
 }
 
 // --- Level 2: did you experiment? ------------------------------------------
 
 func validateLevel2() bool {
-	current, err1 := os.ReadFile("config.yaml")
-	baseline, err2 := os.ReadFile(".config.baseline.yaml")
+	current, err1 := os.ReadFile("workspace/config.yaml")
+	baseline, err2 := os.ReadFile("workspace/.config.baseline.yaml")
 	if err1 != nil || err2 != nil {
-		fmt.Printf("%s config.yaml or .config.baseline.yaml missing\n", fail)
+		fmt.Printf("%s workspace/config.yaml or its pristine copy missing (sdl reset to repair)\n", fail)
 		return false
 	}
 	changed := string(current) != string(baseline)
 	ok := check(changed, fail, "config.yaml modified from the shipped baseline (run at least one experiment)")
 	if !changed {
-		fmt.Println("\nPick an experiment from system/EXPERIMENTS.md, edit config.yaml,")
-		fmt.Println("then: make redeploy && make load-test")
+		fmt.Println("\nPick an experiment from workspace/EXPERIMENTS.md, edit workspace/config.yaml,")
+		fmt.Println("then: sdl restart && sdl load")
 	} else {
 		fmt.Println("\nCompare what you predicted against what the dashboards showed.")
-		fmt.Println("Restore the baseline when done: git checkout -- config.yaml")
+		fmt.Println("Restore the baseline when done: sdl reset")
 	}
 	return ok
 }
@@ -147,23 +139,17 @@ func validateLevel2() bool {
 
 func validateLevel3() bool {
 	ok := true
-
-	// Required tier
 	ok = check(runGoTest("./internal/ring/"), fail, "Required   ring unit tests (go test ./internal/ring/)") && ok
-
-	// Performance tier (live)
 	ok = livePerformanceChecks(false) && ok
-
-	// Journal
 	ok = check(journalFilled(), fail, "Journal    my-journal.md has the required sections filled in") && ok
 	return ok
 }
 
-// --- Level 4: golden signals back to baseline + journal --------------------
+// --- Level 4: golden signals back to YOUR baseline + journal ---------------
 
 func validateLevel4() bool {
 	if !promReachable() {
-		fmt.Printf("%s Prometheus not reachable — run `make start && make load-test` first\n", fail)
+		fmt.Printf("%s Prometheus not reachable — run `sdl start && sdl load` first\n", fail)
 		return false
 	}
 	if loadBaseline() != nil {
@@ -186,9 +172,8 @@ func validateLevel5() bool {
 	return ok
 }
 
-// livePerformanceChecks verifies the running system against healthy
-// thresholds. If required is false and Prometheus is down, the checks are
-// skipped with a warning instead of failing.
+// livePerformanceChecks verifies the running system. If required is false
+// and Prometheus is down, checks are skipped with a warning, not failed.
 func livePerformanceChecks(required bool) bool {
 	if !promReachable() {
 		tag := warn
@@ -209,7 +194,7 @@ func livePerformanceChecks(required bool) bool {
 		p99Label = fmt.Sprintf("≤ %.0fms = %.1f× your L1 baseline", p99Limit*1000, p99BaselineFactor)
 	} else {
 		fmt.Printf("%s Performance  no %s — using generic latency bounds; run Level 1's\n", warn, baselinePath)
-		fmt.Println("             `make validate` once to calibrate for this machine")
+		fmt.Println("             `sdl validate` once to calibrate for this machine")
 	}
 
 	hit, err := promQuery(hitRateQuery)
@@ -229,24 +214,24 @@ func livePerformanceChecks(required bool) bool {
 		fmt.Sprintf("Performance  5xx ratio over last 10m: %.2f%% (want ≤ 1%%)", errRatio*100)) && ok
 
 	if !ok {
-		fmt.Printf("%s          (metrics need a recent load test: make load-test)\n", skip)
+		fmt.Printf("%s          (metrics need a recent load test: sdl load)\n", skip)
 	}
 	return ok
 }
 
 func runGoTest(pkg string) bool {
-	cmd := exec.Command("go", "test", pkg)
-	cmd.Dir = "system/services"
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Println(strings.TrimSpace(string(out)))
-	}
-	return err == nil
+	return goTest(pkg)
 }
 
 func runGoTestTags(tags, pkg string) bool {
-	cmd := exec.Command("go", "test", "-tags", tags, "-count=1", pkg)
-	cmd.Dir = "system/services"
+	return goTest(pkg, "-tags", tags, "-count=1")
+}
+
+func goTest(pkg string, extra ...string) bool {
+	args := append([]string{"test"}, extra...)
+	args = append(args, pkg)
+	cmd := exec.Command("go", args...)
+	cmd.Dir = filepath.Join("workspace", "services")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Println(strings.TrimSpace(string(out)))

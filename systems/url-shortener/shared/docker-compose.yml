@@ -1,10 +1,10 @@
-# URL Shortener lab stack. This file is generated to system/docker-compose.yml
-# on every level branch; paths are relative to the system/ directory.
+# URL Shortener lab stack. Materialized into workspace/docker-compose.yml
+# by `sdl start`; all paths are relative to the workspace root.
 #
 # The cache provider is selected by COMPOSE_PROFILES (redis | memcached),
-# which the Makefile derives from cache.provider in config.yaml. Both
-# providers expose the same network aliases cache-1..cache-3, so services
-# never care which one is running.
+# which sdl derives from cache.provider in config.yaml. Both providers
+# expose the same network aliases cache-1..cache-3, so services never care
+# which one is running.
 name: sdl-url-shortener
 
 services:
@@ -15,7 +15,7 @@ services:
     ports:
       - "${GATEWAY_PORT:-8080}:8080"
     volumes:
-      - ../config.yaml:/app/config.yaml:ro
+      - ./config.yaml:/app/config.yaml:ro
     depends_on:
       db: { condition: service_healthy }
       shortener: { condition: service_started }
@@ -27,7 +27,7 @@ services:
       context: ./services
       args: { SERVICE: shortener }
     volumes:
-      - ../config.yaml:/app/config.yaml:ro
+      - ./config.yaml:/app/config.yaml:ro
     depends_on:
       db: { condition: service_healthy }
     restart: unless-stopped
@@ -37,7 +37,7 @@ services:
       context: ./services
       args: { SERVICE: redirector }
     volumes:
-      - ../config.yaml:/app/config.yaml:ro
+      - ./config.yaml:/app/config.yaml:ro
     depends_on:
       db: { condition: service_healthy }
     restart: unless-stopped
@@ -94,14 +94,14 @@ services:
     networks:
       default: { aliases: [cache-3] }
 
-  # --- Observability (identical on every level branch) ---------------------
+  # --- Observability (identical on every level) -----------------------------
   prometheus:
     image: prom/prometheus:v2.53.0
     command: ["--config.file=/etc/prometheus/prometheus.yml"]
     ports:
       - "${PROMETHEUS_PORT:-9090}:9090"
     volumes:
-      - ../infrastructure/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
 
   grafana:
     image: grafana/grafana:11.1.0
@@ -113,12 +113,12 @@ services:
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/golden-signals.json
     volumes:
-      - ../infrastructure/observability/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ../infrastructure/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
 
-  # --- Load generator (run on demand: make load-test) -----------------------
+  # --- Load generator (run on demand: sdl load) ------------------------------
   k6:
     image: grafana/k6:0.52.0
     profiles: ["tools"]

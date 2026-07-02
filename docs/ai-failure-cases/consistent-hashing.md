@@ -9,9 +9,9 @@
 ## Run It Yourself (5 minutes)
 
 1. Give your model the naive prompt below — no extra context.
-2. Drop its output into `system/services/internal/ring/ring.go`
+2. Drop its output into `workspace/services/internal/ring/ring.go`
    (adapt to the `ConsistentHasher` interface if needed).
-3. `cd system/services && go test ./internal/ring/ -v`
+3. `cd workspace/services && go test ./internal/ring/ -v`
 4. Record: which tiers passed? What was the distribution stddev? Run it
    under `-race` with concurrent access if the tests pass.
 

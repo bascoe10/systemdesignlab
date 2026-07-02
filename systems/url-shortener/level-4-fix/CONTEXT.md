@@ -13,13 +13,13 @@ Now: users are complaining that redirects are slow. The system is deployed
 and "running" — no crashes, no obvious errors — but something is very wrong.
 
 ```bash
-make start && make load-test
-make dashboard
+sdl start && sdl load
+sdl dashboard
 ```
 
 Read `KNOWN_ISSUES.md` for the symptoms. Diagnose from the dashboards, fix
-the configuration, `make redeploy && make load-test`, repeat until the
-Golden Signals match your Level 1 baseline. `make validate` checks the live
+the configuration, `sdl restart && sdl load`, repeat until the
+Golden Signals match your Level 1 baseline. `sdl validate` checks the live
 metrics against healthy thresholds.
 
 Rules of engagement:
@@ -27,6 +27,6 @@ Rules of engagement:
 - Journal each diagnosis: symptom → hypothesis → evidence → fix. That
   narrative is the debugging answer interviewers want to hear.
 - `SOLUTIONS.md` exists but stays hidden until you run
-  `make reveal-solution`. Diagnosis is the entire point of this level.
+  `sdl reveal-solution`. Diagnosis is the entire point of this level.
 
-Next: `git checkout level-5-scratch/url-shortener`
+Next: `sdl level 5`

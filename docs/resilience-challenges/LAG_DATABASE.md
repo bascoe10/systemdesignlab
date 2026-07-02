@@ -2,9 +2,9 @@
 
 ## What Gets Injected
 
-`make chaos-lag-database` — 300ms of network latency on every database
-round-trip (`DELAY=500ms` to change), via `tc netem` in the DB container's
-network namespace. Undo with `make chaos-restore`.
+`sdl chaos lag-db` — 300ms of network latency on every database
+round-trip (`--delay 500ms` to change), via `tc netem` in the DB container's
+network namespace. Undo with `sdl chaos restore`.
 
 Note: needs the Linux `netem` kernel module. On Docker Desktop the script
 prints a manual fallback if injection fails.

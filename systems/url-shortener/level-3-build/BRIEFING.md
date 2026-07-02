@@ -2,7 +2,7 @@
 
 ## The Job
 
-Implement `system/services/internal/ring/ring.go`. The interface contract:
+Implement `workspace/services/internal/ring/ring.go`. The interface contract:
 
 ```go
 type ConsistentHasher interface {
@@ -41,7 +41,7 @@ what an AI-generated version typically gets wrong.
 ## Definition of Done
 
 ```bash
-make validate
+sdl validate
 ```
 
 1. **Required** — `go test ./internal/ring/` passes: contract behaviour,
@@ -49,7 +49,7 @@ make validate
 2. **Performance** — distribution and rehashing tests pass: relative stddev
    across nodes < 15% with 128 virtual nodes; adding a node moves < 35% of
    keys.
-3. **Live** — `make redeploy && make load-test`, then check the targets in
+3. **Live** — `sdl restart && sdl load`, then check the targets in
    `EXPECTED_METRICS.md` on the dashboard.
 4. **Journal** — `my-journal.md` has your constraints, decisions, and load
    test numbers filled in.

@@ -7,21 +7,21 @@ By now you've:
   `virtual_nodes: 1` wrecks the node distribution — and now you know why
   that knob exists.
 
-Now the consistent hash ring is gone. `system/services/internal/ring/ring.go`
+Now the consistent hash ring is gone. `workspace/services/internal/ring/ring.go`
 is a stub that returns errors, so every cache lookup degrades to a bypass:
 the system still works, but 100% of reads hit the database.
 
 Start the stack and look at the dashboard BEFORE writing code:
 
 ```bash
-make start && make load-test
+sdl start && sdl load
 ```
 
 Component Deep Dive → "Cache read outcomes" shows everything as `bypass`.
 That's your "before" picture. Your implementation is done when the same
 panel shows >85% hits and the per-node panel shows three even lines.
 
-Read `BRIEFING.md`, then `make journal` — the decision journal is required
+Read `BRIEFING.md`, then `sdl journal` — the decision journal is required
 at this level.
 
-Next: `git checkout level-4-fix/url-shortener`
+Next: `sdl level 4`

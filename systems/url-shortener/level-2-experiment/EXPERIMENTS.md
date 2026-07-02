@@ -1,12 +1,12 @@
 # Experiments — URL Shortener
 
 Run each experiment, predict the outcome BEFORE redeploying, then compare.
-`make validate` checks that you actually changed the config at least once.
+`sdl validate` checks that you actually changed the config at least once.
 
 ## Experiment 1: Switch Cache Provider
 
 Change `cache.provider` from `redis` to `memcached` (or run
-`make switch-cache PROVIDER=memcached`), then `make redeploy && make load-test`.
+`sdl cache memcached`), then `sdl restart && sdl load`.
 
 Expected outcome:
 - Hit rate stays similar — the hash ring doesn't care which backend it shards.
@@ -18,7 +18,7 @@ Expected outcome:
 
 ## Experiment 2: Shrink the Cache
 
-Set `cache.max_memory: 16mb`. Run `make redeploy && make load-test SCENARIO=hot-key`.
+Set `cache.max_memory: 16mb`. Run `sdl restart && sdl load --scenario hot-key`.
 
 Expected outcome:
 - Eviction rate spikes (Component Deep Dive → "Evictions per cache node").
@@ -40,7 +40,7 @@ Expected outcome:
 ## Experiment 4: Starve the DB Pool
 
 Set `database.pool_size: 2`. Redeploy, then run
-`make load-test SCENARIO=read-spike`.
+`sdl load --scenario read-spike`.
 
 Expected outcome:
 - p99 climbs while p50 barely moves: only cache-miss requests queue on the
@@ -62,5 +62,5 @@ Expected outcome:
 
 ---
 
-When done, restore the healthy config (`git checkout -- config.yaml`),
-run `make validate`, and move on: `git checkout level-3-build/url-shortener`
+When done, restore the healthy config (`sdl reset && sdl restart`),
+run `sdl validate`, and move on: `sdl level 3`

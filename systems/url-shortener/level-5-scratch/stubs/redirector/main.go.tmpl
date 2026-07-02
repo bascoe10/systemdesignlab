@@ -1,11 +1,11 @@
 // LEVEL 5 SKELETON — redirector (read-heavy path)
 //
-// Contract: system/contracts/redirector.yaml. Cache-aside: try the cache
+// Contract: workspace/contracts/redirector.yaml. Cache-aside: try the cache
 // node your ring picks; on miss, read Postgres, backfill the cache
 // asynchronously, and 302 either way. Unknown code → 404.
 //
 // The resilience requirement is the interesting part: when cache nodes are
-// down (make chaos-kill-cache), this service must keep serving from the
+// down (sdl chaos kill-cache), this service must keep serving from the
 // database — degraded latency, zero errors.
 package main
 

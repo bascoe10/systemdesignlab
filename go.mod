@@ -1,4 +1,4 @@
-module systemdesignlab/cli
+module github.com/systemdesignlab/sdl
 
 go 1.23
 

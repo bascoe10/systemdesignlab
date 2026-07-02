@@ -28,9 +28,9 @@ There are **four distinct root causes**. Some symptoms share a cause's
 side effects — part of the diagnosis is working out which is which.
 
 For each one, journal: the symptom → which dashboard panel implicates which
-component → your hypothesis → the fix → the panel after `make redeploy`.
+component → your hypothesis → the fix → the panel after `sdl restart`.
 
-DO NOT run `make reveal-solution` until you've diagnosed and fixed all four.
+DO NOT run `sdl reveal-solution` until you've diagnosed and fixed all four.
 The challenge is in the diagnosis.
 
-Done when: `make validate` passes (live metrics back at healthy baselines).
+Done when: `sdl validate` passes (live metrics back at healthy baselines).

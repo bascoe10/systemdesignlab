@@ -14,8 +14,8 @@ dashboards — is already wired and waiting. The dashboards light up as your
 services come online.
 
 ```bash
-make start        # everything boots; business endpoints return 501
-make dashboard    # your empty canvas
+sdl start        # everything boots; business endpoints return 501
+sdl dashboard    # your empty canvas
 ```
 
 Read `BRIEFING.md`. Journal your architecture decisions BEFORE coding —

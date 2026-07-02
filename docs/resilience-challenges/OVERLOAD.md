@@ -2,8 +2,8 @@
 
 ## What Gets Injected
 
-`make chaos-overload` — ~5x steady-state traffic (default 5000 rps) for two
-minutes (`RATE=10000 DURATION=1m` to change).
+`sdl chaos overload` — ~5x steady-state traffic (default 5000 rps) for two
+minutes (`--rate 10000 --duration 1m` to change).
 
 ## What to Look For in Grafana
 

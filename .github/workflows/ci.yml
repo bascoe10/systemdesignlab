@@ -16,8 +16,8 @@ jobs:
         with:
           go-version: "1.23"
           cache-dependency-path: |
+            go.sum
             systems/url-shortener/shared/services/go.sum
-            cli/go.sum
 
       - name: Test services
         working-directory: systems/url-shortener/shared/services
@@ -27,31 +27,31 @@ jobs:
           go vet -tags integration ./integration/
 
       - name: Build CLI
-        working-directory: cli
         run: |
-          go vet ./...
-          go build -o /dev/null .
+          go vet ./cli
+          go build -o /tmp/sdl ./cli
 
-      - name: Shellcheck chaos + generator scripts
-        run: |
-          sudo apt-get install -y shellcheck
-          # -x follows sourced files (see the shellcheck source= directives);
-          # -P sets the search path for them relative to the repo root.
-          shellcheck -x -P . chaos-toolkit/scripts/*.sh generator/generate.sh
-
-      - name: Generate every level and validate compose config
+      - name: Materialize every level and validate compose config
         run: |
           for level in 1 2 3 4 5; do
-            bash generator/generate.sh --out /tmp/lab-$level url-shortener $level
-            COMPOSE_PROFILES=redis docker compose -f /tmp/lab-$level/system/docker-compose.yml config -q
-            COMPOSE_PROFILES=memcached docker compose -f /tmp/lab-$level/system/docker-compose.yml config -q
+            /tmp/sdl materialize url-shortener $level /tmp/lab-$level
+            COMPOSE_PROFILES=redis docker compose -f /tmp/lab-$level/docker-compose.yml config -q
+            COMPOSE_PROFILES=memcached docker compose -f /tmp/lab-$level/docker-compose.yml config -q
           done
 
-      - name: Generated branches must compile (stub levels included)
+      - name: Stub levels must compile (workspace = what learners get)
         run: |
           for level in 3 5; do
-            (cd /tmp/lab-$level/system/services && go build ./...)
+            (cd /tmp/lab-$level/services && go build ./...)
           done
+
+      - name: Level 4 hides solutions, Level 3 stubs fail their tests
+        run: |
+          test -f /tmp/lab-4/.solutions/SOLUTIONS.md
+          if (cd /tmp/lab-3/services && go test ./internal/ring/ > /dev/null 2>&1); then
+            echo "Level 3 ring tests passed on the stub — the challenge is broken"
+            exit 1
+          fi
 
       - name: Dashboards are in sync with the generator script
         working-directory: infrastructure/observability/grafana

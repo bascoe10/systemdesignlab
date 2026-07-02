@@ -1,6 +1,6 @@
 # ADR 0001: Generated branches are a swappable distribution mechanism
 
-**Status:** accepted · 2026-07
+**Status:** superseded by [ADR 0002](0002-cli-materialized-workspaces.md) · 2026-07
 
 ## Decision
 
@@ -24,11 +24,11 @@ Both reuse `assemble()` in the generator as-is. Do not build either until
 user friction data demands it; do not let any new feature assume branches
 are permanent.
 
-## Guardrails shipped with the branch model
+## Guardrails shipped with the branch model (v1, historical)
 
-- `make start`/`make redeploy` auto-move users off generated code branches
-  (levels 3–5) onto `my-progress/*` branches; levels 1–2 get a notice.
-- `sdl switch <level>` wraps the stash/checkout/restore dance.
+- `make start`/`make redeploy` auto-moved users off generated code branches
+  (levels 3–5) onto `my-progress/*` branches; levels 1–2 got a notice.
+- `sdl switch <level>` wrapped the stash/checkout/restore dance.
 - A CI force-push moves only the remote ref — local commits survive in the
   local branch; stranding requires pulling a generated branch, which the
   guardrails make unlikely.

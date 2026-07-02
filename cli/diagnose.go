@@ -44,14 +44,6 @@ type scoringConfig struct {
 	} `yaml:"scoring"`
 }
 
-var levelBranches = map[int]string{
-	1: "level-1-observe/url-shortener",
-	2: "level-2-experiment/url-shortener",
-	3: "level-3-build/url-shortener",
-	4: "level-4-fix/url-shortener",
-	5: "level-5-scratch/url-shortener",
-}
-
 var levelPitch = map[int]string{
 	2: "Level 2 will build your intuition for config trade-offs — eviction policies, memory limits, pool sizes — with a dashboard showing you every consequence.",
 	3: "Level 3 will challenge you to build a consistent hashing ring inside an otherwise-working system.",
@@ -153,11 +145,11 @@ func cmdDiagnose(args []string) error {
 	if pitch, ok := levelPitch[recommended]; ok {
 		fmt.Printf("\n  %s\n", pitch)
 	}
-	fmt.Printf("\n  Run: git checkout %s\n", levelBranches[recommended])
+	fmt.Printf("\n  Run: sdl start --level %d\n", recommended)
 	if recommended > 1 {
 		fmt.Println("\n  Tip: Even experienced engineers benefit from Level 1. It takes")
-		fmt.Println("  ~15 minutes and gives you the Grafana dashboard baseline you'll")
-		fmt.Println("  need in Level 4.")
+		fmt.Println("  ~15 minutes, and its `sdl validate` calibrates the performance")
+		fmt.Println("  baseline your machine is judged against at Levels 3-5.")
 	}
 	return nil
 }

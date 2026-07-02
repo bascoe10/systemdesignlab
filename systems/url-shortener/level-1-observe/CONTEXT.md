@@ -5,9 +5,9 @@ this level — your job is to learn what "healthy" looks like on a dashboard,
 because every later level asks you to recognize when it isn't.
 
 ```bash
-make start        # build and start everything (~2 min first time)
-make load-test    # steady traffic: 80% reads, 20% writes
-make dashboard    # Grafana → Golden Signals Overview
+sdl start        # build and start everything (~2 min first time)
+sdl load    # steady traffic: 80% reads, 20% writes
+sdl dashboard    # Grafana → Golden Signals Overview
 ```
 
 Then open `QUESTIONS.md` and work through the observation prompts.
@@ -17,8 +17,8 @@ By the end of this level you should be able to answer, from memory:
 - Which Golden Signal moves first when traffic spikes?
 
 That baseline is the diagnostic skill Level 4 is built on — and it's
-literal: finish with `make validate`, which records your machine's healthy
-numbers into `.baseline.json`. Levels 3–5 judge your implementations
+literal: finish with `sdl validate`, which records your machine's healthy
+numbers into `.sdl/baseline.json`. Levels 3–5 judge your implementations
 against *your* baseline, so don't skip this.
 
-Next: `make level-2` (or `git checkout level-2-experiment/url-shortener`)
+Next: `sdl level 2` (or `sdl level 2`)

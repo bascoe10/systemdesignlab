@@ -1,8 +1,8 @@
 # Decision Journal
 
-Copy happens automatically: `make journal` creates `my-journal.md` from this
+Copy happens automatically: `sdl journal` creates `my-journal.md` from this
 template (gitignored — it stays personal). Required for Levels 3–5;
-`make validate` checks that the required sections are filled in.
+`sdl validate` checks that the required sections are filled in.
 
 This journal IS the interview prep. Interviewers evaluate how you articulate
 constraints and trade-offs, not whether you memorized an architecture.

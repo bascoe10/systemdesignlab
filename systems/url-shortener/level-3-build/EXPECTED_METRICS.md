@@ -1,7 +1,7 @@
 # Expected Metrics — URL Shortener Level 3
 
 When your ring implementation is correct, a steady-state load test
-(`make load-test`, 1000 RPS, 2 minutes) should show:
+(`sdl load`, 1000 RPS, 2 minutes) should show:
 
 | Metric | Target | Where to look |
 |--------|--------|---------------|
@@ -15,8 +15,8 @@ When your ring implementation is correct, a steady-state load test
 Notes:
 - Hit rate needs ~60s of load to warm up from 0% — judge the steady state,
   not the first minute.
-- Latency numbers above are references for typical hardware. `make validate`
-  judges p99 against **your own Level 1 baseline** (`.baseline.json`,
+- Latency numbers above are references for typical hardware. `sdl validate`
+  judges p99 against **your own Level 1 baseline** (`.sdl/baseline.json`,
   captured when you validated Level 1): pass = within 1.5× your healthy
   p99. If you skipped Level 1, generic bounds apply — go calibrate, it
   takes 15 minutes.

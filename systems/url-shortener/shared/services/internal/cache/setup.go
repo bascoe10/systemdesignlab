@@ -12,7 +12,7 @@ import (
 )
 
 // NewClusterFromConfig wires provider + hash ring from config.yaml.
-// Ring errors are deliberately non-fatal: on the Level 3 branch the ring is
+// Ring errors are deliberately non-fatal: on the Level 3 workspace the ring is
 // a stub that returns errors, and the system must still boot and serve
 // traffic straight from the database.
 func NewClusterFromConfig(cfg *config.Config) (*Cluster, error) {

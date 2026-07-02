@@ -20,7 +20,7 @@ systems/<name>/
     services/            one Go module; per-service mains + internal/
     load-tests/          k6 scenarios (RATE/DURATION overridable via env)
     db/                  schema init
-    docker-compose.yml   paths relative to system/ on generated branches
+    docker-compose.yml   paths relative to the workspace root
     system.yaml.tmpl     __LEVEL__ / __LEVEL_NAME__ / __ESTIMATED_TIME__ /
                          __GENERATED_FROM__ placeholders
     README.md            "Where do I start?" section
@@ -32,12 +32,15 @@ systems/<name>/
   level-4-fix/           CONTEXT.md KNOWN_ISSUES.md config.yaml
                          .solutions/SOLUTIONS.md
   level-5-scratch/       CONTEXT.md BRIEFING.md EXPECTED_METRICS.md
-                         config.yaml contracts/ stubs/<svc>/main.go
+                         config.yaml contracts/ stubs/<svc>/main.go.tmpl
 ```
 
-Then register the system in `generator/generate.sh` (the level-specific
-surgery in `assemble()`) and add its scrape targets/panels if it introduces
-new components.
+Service-main stubs ship as `.go.tmpl` (so the repo's root Go module ignores
+them); the materializer renders them to `main.go` in the workspace.
+
+Then register the system's level-specific surgery in `cli/workspace.go`
+(`materialize`) and add its scrape targets/panels if it introduces new
+components.
 
 ## The Invariants
 
@@ -66,7 +69,7 @@ new components.
 5. **Machine-dependent numbers are baseline-relative.** Absolute targets
    only for ratios (hit rates, error rates, distribution skew). Latency
    and throughput validate against the user's Level 1 baseline
-   (`.baseline.json`); reference numbers in docs are labeled "typical
+   (`.sdl/baseline.json`); reference numbers in docs are labeled "typical
    hardware".
 
 6. **Dashboards are identical across all five levels** and generated from
@@ -87,9 +90,9 @@ new components.
 
 ## Definition of Done for a System PR
 
-- [ ] All five levels assemble: `bash generator/generate.sh --out /tmp/x <name> N` for N=1..5
+- [ ] All five levels assemble: `sdl materialize <name> N /tmp/x` for N=1..5
 - [ ] Stub levels compile; L3 tests fail on the stub and pass on the reference
-- [ ] `make start LEVEL=N && make load-test && make validate` green on 1, and on 3–5 with the reference implementation
+- [ ] `sdl start --level N && sdl load && sdl validate` green on 1, and on 3–5 with the reference implementation
 - [ ] Every L4 symptom diagnosed by a fresh reviewer using only dashboards
 - [ ] Docs carry the narrative thread and expected outcomes
-- [ ] CI green (compose config both cache profiles, shellcheck, dashboards in sync)
+- [ ] CI green (compose config both cache profiles, stub compilation, dashboards in sync)

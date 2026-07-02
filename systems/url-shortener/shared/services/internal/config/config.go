@@ -1,5 +1,5 @@
 // Package config loads the lab-wide config.yaml that drives every service.
-// The file lives at the branch root and is mounted read-only into each
+// The file lives at the workspace root and is mounted read-only into each
 // container at /app/config.yaml. Levels 2 and 4 are built around editing it.
 package config
 

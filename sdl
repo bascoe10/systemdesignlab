@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Convenience wrapper: builds the CLI (incremental, cached) and runs it.
+# Equivalent to: go run ./cli "$@"    — Windows users: cd cli && go build -o ../sdl.exe .
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BIN="$ROOT/.sdl/bin/sdl"
+mkdir -p "$ROOT/.sdl/bin"
+(cd "$ROOT" && go build -o "$BIN" ./cli)
+exec "$BIN" "$@"

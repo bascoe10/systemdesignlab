@@ -1,7 +1,7 @@
 //go:build integration
 
-// End-to-end tests against a running stack (make start). Used by
-// `make validate` on Levels 3 and 5. Run manually with:
+// End-to-end tests against a running stack (sdl start). Used by
+// `sdl validate` on Levels 3 and 5. Run manually with:
 //
 //	go test -tags integration ./integration/ -v
 package integration
@@ -36,7 +36,7 @@ func shorten(t *testing.T, target string) string {
 	body, _ := json.Marshal(map[string]string{"url": target})
 	resp, err := client.Post(baseURL()+"/api/shorten", "application/json", bytes.NewReader(body))
 	if err != nil {
-		t.Fatalf("POST /api/shorten: %v (is the stack running? try `make start`)", err)
+		t.Fatalf("POST /api/shorten: %v (is the stack running? try `sdl start`)", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusCreated {

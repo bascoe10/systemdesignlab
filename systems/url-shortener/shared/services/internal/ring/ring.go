@@ -1,6 +1,6 @@
 // Package ring implements consistent hashing with virtual nodes.
 //
-// This is the component you build yourself on the Level 3 branch — there,
+// This is the component you build yourself on the Level 3 workspace — there,
 // this file is replaced by a stub. The interface is the contract; the tests
 // in ring_test.go define correctness.
 package ring

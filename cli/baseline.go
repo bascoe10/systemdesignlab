@@ -11,7 +11,8 @@ import (
 // rate, skew, error ratio) are machine-independent and keep absolute
 // thresholds; latency is machine-dependent, so Levels 3-5 validate against
 // a multiple of YOUR healthy p99 rather than a number tuned on someone
-// else's laptop. Captured by `make validate` on Level 1; gitignored.
+// else's laptop. Captured by `sdl validate` on Level 1; lives in .sdl/ so
+// it survives workspace parking, level switches, and resets.
 type Baseline struct {
 	CapturedAt string  `json:"captured_at"`
 	P50Seconds float64 `json:"p50_seconds"`
@@ -20,7 +21,7 @@ type Baseline struct {
 	NodeSkew   float64 `json:"node_skew"`
 }
 
-const baselinePath = ".baseline.json"
+const baselinePath = ".sdl/baseline.json"
 
 func loadBaseline() *Baseline {
 	raw, err := os.ReadFile(baselinePath)
@@ -63,6 +64,9 @@ func captureBaseline() (*Baseline, error) {
 		P99Seconds: p99,
 		HitRate:    hit,
 		NodeSkew:   skew,
+	}
+	if err := os.MkdirAll(".sdl", 0o755); err != nil {
+		return nil, err
 	}
 	raw, _ := json.MarshalIndent(b, "", "  ")
 	if err := os.WriteFile(baselinePath, append(raw, '\n'), 0o644); err != nil {

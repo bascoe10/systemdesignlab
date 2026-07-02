@@ -1,6 +1,6 @@
 # Observation Questions — URL Shortener
 
-Run `make load-test` and open `make dashboard`. Answer these (in writing —
+Run `sdl load` and open `sdl dashboard`. Answer these (in writing —
 articulating observations is the skill being trained):
 
 ## Golden Signals Overview
@@ -16,14 +16,14 @@ articulating observations is the skill being trained):
 
 4. Which of the Four Golden Signals would degrade FIRST under sustained
    10x load? Form a hypothesis now — you'll test it with
-   `make chaos-overload`.
+   `sdl chaos overload`.
 
 ## Component Deep Dive
 
 5. Look at "Consistent hashing — ops per cache node". Are the three nodes
    evenly loaded? What property of the hash ring makes that true?
 
-6. Run `make load-test SCENARIO=hot-key`. What happens to the per-node
+6. Run `sdl load --scenario hot-key`. What happens to the per-node
    distribution? Why can't consistent hashing fix a hot key?
 
 7. Compare "DB queries/sec" against the cache hit rate. Explain the
@@ -31,9 +31,9 @@ articulating observations is the skill being trained):
 
 ## Chaos preview (optional, fun)
 
-8. With a load test running, run `make chaos-kill-cache`, and watch the
+8. With a load test running, run `sdl chaos kill-cache`, and watch the
    Chaos Impact dashboard. Did the system keep serving redirects? At what
    latency cost? How fast did the hit rate recover after restore?
 
-When you can answer all of these, run `make validate`, then move on:
-`git checkout level-2-experiment/url-shortener`
+When you can answer all of these, run `sdl validate`, then move on:
+`sdl level 2`

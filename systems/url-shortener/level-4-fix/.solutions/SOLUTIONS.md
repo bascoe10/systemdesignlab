@@ -1,6 +1,6 @@
 # Solutions — URL Shortener Level 4
 
-Revealed via `make reveal-solution`. If you're reading this before fixing
+Revealed via `sdl reveal-solution`. If you're reading this before fixing
 the system yourself, you're stealing the learning from future-you.
 
 All four root causes live in `config.yaml`.
@@ -47,8 +47,8 @@ bottleneck. Layered misconfigurations masking each other is deliberate.
 ## Verify
 
 ```bash
-make redeploy && make load-test
-make validate
+sdl restart && sdl load
+sdl validate
 ```
 
 Hit rate > 85%, p99 < 100ms, three even node lines, evictions ~0.
