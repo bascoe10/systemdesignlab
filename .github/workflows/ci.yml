@@ -35,7 +35,9 @@ jobs:
       - name: Shellcheck chaos + generator scripts
         run: |
           sudo apt-get install -y shellcheck
-          shellcheck chaos-toolkit/scripts/*.sh generator/generate.sh
+          # -x follows sourced files (see the shellcheck source= directives);
+          # -P sets the search path for them relative to the repo root.
+          shellcheck -x -P . chaos-toolkit/scripts/*.sh generator/generate.sh
 
       - name: Generate every level and validate compose config
         run: |

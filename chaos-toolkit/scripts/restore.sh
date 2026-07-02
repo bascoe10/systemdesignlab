@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Undo all chaos: remove injected network latency, restart stopped cache
 # nodes, and make sure every service is up.
+# shellcheck source=chaos-toolkit/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 banner "restoring healthy state"

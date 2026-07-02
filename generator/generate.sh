@@ -29,7 +29,7 @@ src_sha() { git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown";
 assemble() {
   local system="$1" level="$2" out="$3"
   local sys_dir="$ROOT/systems/$system"
-  local lvl_dir="$sys_dir/$(level_dir "$level")"
+  local lvl_dir; lvl_dir="$sys_dir/$(level_dir "$level")"
   local shared="$sys_dir/shared"
   local sha; sha="$(src_sha)"
 
@@ -96,13 +96,15 @@ push_branches() {
   [[ ${#systems[@]} -gt 0 ]] || systems=(url-shortener)
   local origin; origin="$(git -C "$ROOT" remote get-url origin)"
   local sha; sha="$(src_sha)"
-  local work; work="$(mktemp -d)"
-  trap 'rm -rf "$work"' EXIT
+  # WORKDIR is global on purpose: the EXIT trap fires at script scope,
+  # where a `local` would be unbound under set -u.
+  WORKDIR="$(mktemp -d)"
+  trap 'rm -rf "${WORKDIR:-}"' EXIT
 
   for system in "${systems[@]}"; do
     for level in 1 2 3 4 5; do
-      local branch="$(level_dir "$level")/$system"
-      local out="$work/$branch"
+      local branch; branch="$(level_dir "$level")/$system"
+      local out="$WORKDIR/$branch"
       assemble "$system" "$level" "$out"
       git -C "$out" init -q -b "$branch"
       git -C "$out" add -A

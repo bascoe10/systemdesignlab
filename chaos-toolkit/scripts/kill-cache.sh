@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Kill every cache node for OUTAGE seconds (default 60), then restore.
 # Keep a load test running in another terminal and watch the fallback.
+# shellcheck source=chaos-toolkit/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 OUTAGE="${OUTAGE:-60}"

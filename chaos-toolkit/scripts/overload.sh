@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Overload: hammer the system with RATE rps (default 5000, ~5x steady state)
 # for DURATION (default 2m). Which component gives out first?
+# shellcheck source=chaos-toolkit/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 RATE="${RATE:-5000}"

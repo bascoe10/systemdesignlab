@@ -2,6 +2,7 @@
 # Inject DELAY (default 300ms) of network latency on the database container
 # using tc netem, run from a sidecar container in the DB's network namespace.
 # Undo with: make chaos-restore
+# shellcheck source=chaos-toolkit/scripts/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 DELAY="${DELAY:-300ms}"
